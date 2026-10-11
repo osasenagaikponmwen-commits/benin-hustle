@@ -53,6 +53,16 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val prefsC = getSharedPreferences("crash", MODE_PRIVATE)
+        val oldHandler = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { t, e ->
+            try {
+                val sw = java.io.StringWriter()
+                e.printStackTrace(java.io.PrintWriter(sw))
+                prefsC.edit().putString("last", "Thread: " + t.name + "\n" + sw.toString().take(3500)).commit()
+            } catch (_: Throwable) {}
+            oldHandler?.uncaughtException(t, e)
+        }
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         root = FrameLayout(this)
         root.setBackgroundColor(Colors.INK)
@@ -67,6 +77,16 @@ class MainActivity : AppCompatActivity() {
             }
         })
         showMenu()
+        val crash = prefsC.getString("last", null)
+        if (crash != null) {
+            prefsC.edit().remove("last").apply()
+            val t = TextView(this).apply {
+                text = crash; textSize = 11f; setTextIsSelectable(true); setPadding(dp(16), dp(8), dp(16), dp(8))
+            }
+            AlertDialog.Builder(this).setTitle("Last crash - screenshot this for Claude")
+                .setView(android.widget.ScrollView(this).apply { addView(t) })
+                .setPositiveButton("OK", null).show()
+        }
     }
 
     override fun onDestroy() {
